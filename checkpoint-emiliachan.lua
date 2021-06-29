@@ -1,8 +1,13 @@
 Menu.Spacing()
 Menu.Spacing()
+Menu.Separator()
 Menu.Text("Checkpoint lua by emilia-chan")
 Menu.Spacing()
-Menu.Checkbox("Enabled","b_Enabled",true)
+Menu.Checkbox("Enabled","b_velenabled",true)
+Menu.Spacing()
+Menu.Checkbox("Velocity cancellation", "b_velcancel", true)
+Menu.Spacing()
+Menu.Checkbox("Sounds", "b_velsounds", false)
 Menu.Spacing()
 Menu.Button("sv_cheats 1","svcheat1")
 Menu.Spacing()
@@ -66,7 +71,7 @@ local unmove = false
 
 
 local function doteleport(pos)
-	if Menu.GetBool("b_Enabled") == false then
+	if Menu.GetBool("b_velenabled") == false then
 		return
 	end
 
@@ -84,7 +89,7 @@ local function doteleport(pos)
 	local current = CurrentCP
 	local counter = CounterCP
 
-
+	local toplay = Menu.GetBool("b_velsounds")
 
 	if OverallCP > CpLimit then
 		
@@ -131,15 +136,15 @@ local function doteleport(pos)
 		IEngine.ExecuteClientCmd("setpos_exact " .. tostring(posx[actual]) .. " " .. tostring(posy[actual]) .. " " .. tostring(posz[actual]))
 		IEngine.ExecuteClientCmd("setang_exact " .. tostring(viewangx[actual]) .. " " .. tostring(viewangy[actual]))
 		CurrentCP = CurrentCP + pos
-		IEngine.ExecuteClientCmd("playvol buttons\\blip1 1")
+		if toplay then IEngine.ExecuteClientCmd("playvol buttons\\blip1 1") end
 	end
 end
 
 
+local cancellation = false
 
-
-local function teleport()
-	if Menu.GetBool("b_Enabled") == false then
+local function teleport(cmd)
+	if Menu.GetBool("b_velenabled") == false then
 		return
 	end
 
@@ -202,11 +207,11 @@ local function teleport()
 	
 
 	
-
+	local toplay = Menu.GetBool("b_velsounds")
 
 	if Hotkey_status.prev then
 		if CurrentCP == -1 then
-			IEngine.ExecuteClientCmd("playvol buttons\\button10 1")	
+			if toplay then IEngine.ExecuteClientCmd("playvol buttons\\button10 1") end
 			IChatElement.ChatPrintf(0, 0, "[Checkpoint] No Checkpoints Found!")
 			return
 		end
@@ -217,7 +222,7 @@ local function teleport()
 	
 	if Hotkey_status.nex then
 		if CurrentCP == -1 then
-			IEngine.ExecuteClientCmd("playvol buttons\\button10 1")	
+			if toplay then IEngine.ExecuteClientCmd("playvol buttons\\button10 1") end
 			IChatElement.ChatPrintf(0, 0, "[Checkpoint] No Checkpoints Found!")
 			return
 		end	
@@ -248,37 +253,51 @@ local function teleport()
 			CounterCP = CounterCP + 1
 			OverallCP = OverallCP + 1
 			IChatElement.ChatPrintf(0, 0, "[Checkpoint] Saved Checkpoint!")
-			IEngine.ExecuteClientCmd("playvol buttons\\blip1 1")
+			if toplay then IEngine.ExecuteClientCmd("playvol buttons\\blip1 1") end
 		else
 			IChatElement.ChatPrintf(0, 0, "[Checkpoint] Not on ground!")
-			IEngine.ExecuteClientCmd("playvol buttons\\button10 1")	
+			if toplay then IEngine.ExecuteClientCmd("playvol buttons\\button10 1") end
 		end	
 		
 	end
 
+
 	if Hotkey_status.set then
 
-		local vecx = math.cos(math.rad(viewangles.yaw)) * vecvelocity.x - math.sin(math.rad(viewangles.yaw)) * vecvelocity.y
-		local vecy = math.sin(math.rad(viewangles.yaw)) * vecvelocity.x + math.cos(math.rad(viewangles.yaw)) * vecvelocity.y
-		
-		local velRotated = Vector2D.new(vecx,vecy)
-
-		if math.sqrt(vecvelocity.x * vecvelocity.x + vecvelocity.y * vecvelocity.y) > 40 then
-			if unmove == false then
-			
-				
-			end
-		end
-
+		cancellation = true
 		doteleport(0)
-		return
+	end
+
+	if cancellation == true then
+		if math.sqrt(vecvelocity.x * vecvelocity.x + vecvelocity.y * vecvelocity.y) < 15 then
+			cancellation = false
+			return
+		end
+		
+		if Menu.GetBool("b_velcancel") then
+
+			if ~(IsBit(cmd.buttons, 8)  or IsBit(cmd.buttons, 9) or IsBit(cmd.buttons, 2) or IsBit(cmd.buttons, 3)) then
+				local vec_direction = QAngle.new()
+				Math.VectorAngles(vecvelocity, vec_direction)
+
+				vec_direction.yaw = cmd.viewangles.yaw - vec_direction.yaw
+				local forward = Vector.new()
+				Math.AngleVectors(vec_direction, forward)
+
+				local vec_negated_direction = forward * math.sqrt(vecvelocity.x * vecvelocity.x + vecvelocity.y * vecvelocity.y);
+
+				cmd.forwardmove = vec_negated_direction.x
+				cmd.sidemove = vec_negated_direction.y
+			end
+			
+		end
 	end
 
 end
 	
 local function ui()
 
-	if Menu.GetBool("b_Enabled") == false then
+	if Menu.GetBool("b_velenabled") == false then
 		return
 	end
 	
